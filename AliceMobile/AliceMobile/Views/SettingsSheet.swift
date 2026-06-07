@@ -15,11 +15,15 @@ struct SettingsSheet: View {
                     }
                     .pickerStyle(.segmented)
 
-                    TextField("Backend Base URL", text: $viewModel.backendBaseURL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                        .disabled(viewModel.apiMode == .mock)
+                    if viewModel.apiMode.allowsCustomBaseURL {
+                        TextField(AppSettingsStore.lanBaseURLPlaceholder, text: $viewModel.backendBaseURL)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .keyboardType(.URL)
+                    }
+
+                    SettingsValueRow(title: "Current URL", value: viewModel.currentBackendBaseURLDisplay)
+                    SettingsValueRow(title: "Connection", value: viewModel.connectionStateLabel)
 
                     HStack {
                         Label(viewModel.healthStatus.label, systemImage: healthIcon)
@@ -28,8 +32,12 @@ struct SettingsSheet: View {
                         Button("Check") {
                             viewModel.checkBackendHealth()
                         }
-                        .disabled(viewModel.apiMode == .mock)
+                        .disabled(!viewModel.canCheckBackendHealth)
                     }
+
+                    Text(connectionHelpText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("Avatar") {
@@ -39,6 +47,8 @@ struct SettingsSheet: View {
                         }
                     }
                     .pickerStyle(.segmented)
+
+                    SettingsValueRow(title: "Renderer Status", value: rendererStatus)
 
                     HStack {
                         Label(riveAssetStatus.label, systemImage: riveAssetStatus.isAvailable ? "checkmark.seal" : "sparkles")
@@ -95,5 +105,40 @@ struct SettingsSheet: View {
 
     private var riveAssetStatus: RiveAvatarAssetStatus {
         RiveAvatarAsset.status()
+    }
+
+    private var rendererStatus: String {
+        if viewModel.avatarRendererPreference == .rive, !riveAssetStatus.isAvailable {
+            return "Rive requested, SwiftUI fallback active"
+        }
+        return "\(viewModel.avatarRendererPreference.label) active"
+    }
+
+    private var connectionHelpText: String {
+        switch viewModel.apiMode {
+        case .mock:
+            return "Mock uses a local contract fixture and does not call the Web backend."
+        case .localhost:
+            return "Use Localhost for iOS Simulator when the Web backend is running on this Mac."
+        case .lan, .remote:
+            return "Use LAN IP for device debugging. Enter your Mac's local network URL here; do not commit personal IPs."
+        }
+    }
+}
+
+private struct SettingsValueRow: View {
+    var title: String
+    var value: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+            Spacer(minLength: 16)
+            Text(value)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(2)
+                .minimumScaleFactor(0.76)
+        }
     }
 }

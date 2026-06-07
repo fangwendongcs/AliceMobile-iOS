@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 #if canImport(RiveRuntime)
 import RiveRuntime
@@ -130,9 +131,9 @@ private struct RiveRuntimeAvatarView: View {
                     .background(
                         LinearGradient(
                             colors: [
-                                Color.black.opacity(0.28),
+                                SwiftUI.Color.black.opacity(0.28),
                                 AliceTheme.personaAccent(context.persona).opacity(0.12),
-                                Color.black.opacity(0.16)
+                                SwiftUI.Color.black.opacity(0.16)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -179,7 +180,7 @@ private struct RiveRuntimeAvatarView: View {
 }
 
 @MainActor
-private final class RiveAvatarRuntimeController: ObservableObject {
+private final class RiveAvatarRuntimeController: Combine.ObservableObject {
     private let viewModel = RiveViewModel(
         fileName: RiveAvatarAsset.fileName,
         stateMachineName: nil,
@@ -216,11 +217,11 @@ struct SwiftUIAvatarView: View {
     var context: AvatarRenderContext
     var onTap: (BodyPart) -> Void
 
-    private var accent: Color {
+    private var accent: SwiftUI.Color {
         AliceTheme.personaAccent(context.persona)
     }
 
-    private var stateColor: Color {
+    private var stateColor: SwiftUI.Color {
         AliceTheme.stateColor(context.avatarState)
     }
 
@@ -231,9 +232,9 @@ struct SwiftUIAvatarView: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.black.opacity(0.28),
+                                SwiftUI.Color.black.opacity(0.28),
                                 accent.opacity(0.13),
-                                Color.black.opacity(0.16)
+                                SwiftUI.Color.black.opacity(0.16)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -298,7 +299,7 @@ struct SwiftUIAvatarView: View {
 }
 
 private struct AvatarLightStreaks: View {
-    var color: Color
+    var color: SwiftUI.Color
 
     private let streaks: [(CGFloat, CGFloat, CGFloat)] = [
         (0.12, 84, 0.28),
@@ -323,19 +324,19 @@ private struct AvatarLightStreaks: View {
 private struct AliceCompanionSilhouette: View {
     var persona: CompanionPersona
     var state: AvatarState
-    var color: Color
+    var color: SwiftUI.Color
 
     var body: some View {
         ZStack {
             Ellipse()
-                .fill(Color.black.opacity(0.48))
+                .fill(SwiftUI.Color.black.opacity(0.48))
                 .frame(width: 180, height: 270)
                 .offset(y: 12)
 
             Ellipse()
                 .fill(
                     LinearGradient(
-                        colors: [Color(red: 0.08, green: 0.09, blue: 0.16), Color.black],
+                        colors: [SwiftUI.Color(red: 0.08, green: 0.09, blue: 0.16), SwiftUI.Color.black],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -344,23 +345,23 @@ private struct AliceCompanionSilhouette: View {
                 .offset(y: 18)
 
             Circle()
-                .fill(Color(red: 0.94, green: 0.80, blue: 0.72))
+                .fill(SwiftUI.Color(red: 0.94, green: 0.80, blue: 0.72))
                 .frame(width: 72, height: 72)
                 .offset(y: -78)
 
             HStack(spacing: 24) {
-                Circle().fill(Color(red: 0.12, green: 0.1, blue: 0.16)).frame(width: 7, height: 7)
-                Circle().fill(Color(red: 0.12, green: 0.1, blue: 0.16)).frame(width: 7, height: 7)
+                Circle().fill(SwiftUI.Color(red: 0.12, green: 0.1, blue: 0.16)).frame(width: 7, height: 7)
+                Circle().fill(SwiftUI.Color(red: 0.12, green: 0.1, blue: 0.16)).frame(width: 7, height: 7)
             }
             .offset(y: -82)
 
             RoundedRectangle(cornerRadius: 22)
-                .fill(Color(red: 0.055, green: 0.07, blue: 0.12))
+                .fill(SwiftUI.Color(red: 0.055, green: 0.07, blue: 0.12))
                 .frame(width: 112, height: 150)
                 .offset(y: 18)
 
             RoundedRectangle(cornerRadius: 5)
-                .fill(Color(red: 0.82, green: 0.84, blue: 0.84))
+                .fill(SwiftUI.Color(red: 0.82, green: 0.84, blue: 0.84))
                 .frame(width: 46, height: 82)
                 .offset(y: 8)
 
@@ -370,7 +371,7 @@ private struct AliceCompanionSilhouette: View {
                 .offset(y: -18)
 
             RoundedRectangle(cornerRadius: 4)
-                .fill(Color(red: 0.10, green: 0.11, blue: 0.16))
+                .fill(SwiftUI.Color(red: 0.10, green: 0.11, blue: 0.16))
                 .frame(width: 116, height: 70)
                 .offset(y: 114)
 
@@ -386,7 +387,7 @@ private struct AliceCompanionSilhouette: View {
 }
 
 private struct VoiceWaveformView: View {
-    var color: Color
+    var color: SwiftUI.Color
     var isActive: Bool
 
     private let bars: [CGFloat] = [0.2, 0.32, 0.18, 0.46, 0.26, 0.64, 0.34, 0.9, 0.42, 0.7, 0.3, 0.5, 0.22, 0.36, 0.18]
@@ -401,7 +402,7 @@ private struct VoiceWaveformView: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 46)
-        .background(Color.black.opacity(0.26), in: Capsule())
+        .background(SwiftUI.Color.black.opacity(0.26), in: Capsule())
         .overlay(
             Capsule()
                 .stroke(color.opacity(0.28), lineWidth: 1)
@@ -427,7 +428,7 @@ private struct BodyPartTapBar: View {
                         .padding(.vertical, 9)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(activeBodyPart == bodyPart ? Color.black : AliceTheme.primaryText)
+                .foregroundStyle(activeBodyPart == bodyPart ? SwiftUI.Color.black : AliceTheme.primaryText)
                 .background(activeBodyPart == bodyPart ? AliceTheme.mint : AliceTheme.surface, in: RoundedRectangle(cornerRadius: 8))
             }
         }
@@ -437,7 +438,7 @@ private struct BodyPartTapBar: View {
 struct StatusPill: View {
     var title: String
     var value: String
-    var color: Color
+    var color: SwiftUI.Color
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {

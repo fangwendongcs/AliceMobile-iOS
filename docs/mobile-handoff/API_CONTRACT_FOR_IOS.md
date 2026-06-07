@@ -141,10 +141,42 @@ iOS 建议：
   "ok": true,
   "data": {
     "reply": "...",
+    "reply_text": "...",
+    "companion_state": {
+      "status": "connected",
+      "emotion": "warm",
+      "tone": "gentle",
+      "avatar_state": "speaking",
+      "memory_status": {
+        "used": true,
+        "status": "ready",
+        "long_term_count": 0
+      },
+      "is_mock": false
+    },
+    "emotion": "warm",
+    "tone": "gentle",
+    "avatar_directive": {
+      "avatar_state": "speaking",
+      "motion_slot": "speaking",
+      "intensity": 0.45,
+      "duration_ms": 1200,
+      "return_to": "idle",
+      "source": "dialogue"
+    },
     "sources": [],
     "memory": {},
+    "memory_status": {
+      "used": true,
+      "status": "ready",
+      "long_term_count": 0
+    },
     "rag": {},
     "workflow": {},
+    "tts_status": {
+      "used": false,
+      "status": "not_requested"
+    },
     "affect": {
       "emotion": "warm",
       "intensity": 0.48,
@@ -176,12 +208,24 @@ iOS 建议：
 
 iOS 必须处理：
 
-- `reply`：聊天文本。
+- `reply` 或 `reply_text`：聊天文本。
+- `companion_state`：统一 Alice Core 状态摘要；缺失时可由当前 response 字段生成展示摘要。
+- `emotion` / `tone`：当前回复表现提示；缺失时兼容 `affect.emotion` / `affect.tone`。
+- `avatar_directive`：优先驱动原生 `AvatarState`、Rive input 和 SwiftUI fallback。
 - `memory`：记忆状态和长期记忆数量。
+- `memory_status`：轻量记忆状态摘要；缺失时从 `memory` 派生展示。
 - `affect.voice`：TTS 参数。
 - `affect.motion.slot`：Avatar 状态派生。
+- `tts_status`：当前阶段只展示，不要求完整 TTS 闭环。
 - `meta.persona`：当前角色摘要。
 - `sources`：RAG 命中来源，可折叠展示。
+
+兼容规则：
+
+- 当前 Web 后端如仍只返回 `reply` + `affect`，iOS 应继续兼容。
+- 如果同时返回 `avatar_directive` 和 `affect.motion.slot`，iOS 优先使用 `avatar_directive`。
+- Mock fallback 必须标记 `companion_state.is_mock = true`，Settings / 首页应显示 mock 或 disconnected 状态。
+- iOS 不根据用户文本自行决定人格、长期记忆写入、情绪策略或 tone 策略。
 
 常见错误：
 
@@ -444,4 +488,3 @@ struct DialogueResponse: Decodable {
     let meta: DialogueMeta?
 }
 ```
-

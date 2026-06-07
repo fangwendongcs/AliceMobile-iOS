@@ -16,6 +16,22 @@ enum AvatarState: String, Codable, CaseIterable, Identifiable, Equatable {
 
     var id: String { rawValue }
 
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let value = try container.decode(String.self)
+        switch value {
+        case "interacting":
+            self = .reacting
+        default:
+            self = AvatarState(rawValue: value) ?? .idle
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+
     var displayName: String {
         switch self {
         case .boot:
@@ -163,5 +179,12 @@ struct AvatarStateReducer {
         case .apologize:
             return .error
         }
+    }
+
+    static func state(for directive: AvatarDirective?, affect: Affect) -> AvatarState {
+        if let directive {
+            return directive.state
+        }
+        return state(for: affect.motion.slot)
     }
 }

@@ -1,6 +1,8 @@
 import Combine
 import Foundation
 
+typealias AliceAPIClientFactory = @MainActor (AppAPIMode, String) throws -> AliceAPIClienting
+
 @MainActor
 final class ChatViewModel: ObservableObject {
     @Published private(set) var personas: [CompanionPersona]
@@ -10,6 +12,9 @@ final class ChatViewModel: ObservableObject {
     @Published private(set) var avatarState: AvatarState
     @Published private(set) var currentAffect: Affect
     @Published private(set) var memoryState: MemoryState
+    @Published private(set) var companionState: CompanionState
+    @Published private(set) var avatarDirective: AvatarDirective
+    @Published private(set) var ttsStatus: TTSStatus
     @Published private(set) var isSending: Bool
     @Published private(set) var errorMessage: String?
     @Published private(set) var interactionNote: String
@@ -34,7 +39,7 @@ final class ChatViewModel: ObservableObject {
     @Published var backendBaseURL: String {
         didSet {
             settingsStore.backendBaseURL = backendBaseURL
-            if apiMode == .remote {
+            if apiMode.usesBackend {
                 healthStatus = .unknown
             }
         }
@@ -48,6 +53,31 @@ final class ChatViewModel: ObservableObject {
         settingsStore.sessionId
     }
 
+    var connectionStateLabel: String {
+        if apiMode == .mock {
+            return "mock"
+        }
+
+        switch healthStatus {
+        case .available:
+            return "connected"
+        case .checking:
+            return "checking"
+        case .unavailable:
+            return "disconnected"
+        case .unknown:
+            return "not checked"
+        }
+    }
+
+    var currentBackendBaseURLDisplay: String {
+        AppSettingsStore.effectiveBackendBaseURLString(mode: apiMode, lanBaseURL: backendBaseURL) ?? "Mock contract"
+    }
+
+    var canCheckBackendHealth: Bool {
+        apiMode.usesBackend && AppSettingsStore.effectiveBackendBaseURL(mode: apiMode, lanBaseURL: backendBaseURL) != nil
+    }
+
     var avatarRenderContext: AvatarRenderContext {
         AvatarRenderContext(
             persona: selectedPersona,
@@ -58,9 +88,13 @@ final class ChatViewModel: ObservableObject {
     }
 
     private let settingsStore: AppSettingsStore
+    private let apiClientFactory: AliceAPIClientFactory
     private var lastUserMessage: String?
 
-    init(settingsStore: AppSettingsStore? = nil) {
+    init(
+        settingsStore: AppSettingsStore? = nil,
+        apiClientFactory: @escaping AliceAPIClientFactory = ChatViewModel.defaultAPIClientFactory
+    ) {
         let resolvedSettingsStore = settingsStore ?? AppSettingsStore()
         let resolvedPersona = CompanionPersona.find(avatarId: resolvedSettingsStore.selectedAvatarId)
         let resolvedAffect = Affect.default(for: resolvedPersona)
@@ -69,8 +103,11 @@ final class ChatViewModel: ObservableObject {
             avatarId: resolvedPersona.avatarId,
             used: resolvedSettingsStore.memoryEnabled
         )
+        let resolvedMemoryStatus = MemoryStatus(memory: resolvedMemory)
+        let resolvedAvatarDirective = AvatarDirective(affect: resolvedAffect)
 
         self.settingsStore = resolvedSettingsStore
+        self.apiClientFactory = apiClientFactory
         personas = CompanionPersona.all
         selectedPersona = resolvedPersona
         draft = ""
@@ -79,6 +116,16 @@ final class ChatViewModel: ObservableObject {
         memoryState = resolvedMemory
         memoryEnabled = resolvedSettingsStore.memoryEnabled
         apiMode = resolvedSettingsStore.apiMode
+        companionState = CompanionState(
+            status: resolvedSettingsStore.apiMode == .mock ? "mock" : "ready",
+            emotion: resolvedAffect.emotion,
+            tone: resolvedAffect.tone,
+            avatarState: resolvedAvatarDirective.state,
+            memoryStatus: resolvedMemoryStatus,
+            isMock: resolvedSettingsStore.apiMode == .mock
+        )
+        avatarDirective = resolvedAvatarDirective
+        ttsStatus = .notRequested
         backendBaseURL = resolvedSettingsStore.backendBaseURL
         isSending = false
         errorMessage = nil
@@ -104,6 +151,16 @@ final class ChatViewModel: ObservableObject {
         avatarState = .idle
         activeBodyPart = nil
         memoryState = .empty(sessionId: sessionId, avatarId: persona.avatarId, used: memoryEnabled)
+        avatarDirective = AvatarDirective(affect: currentAffect)
+        companionState = CompanionState(
+            status: apiMode == .mock ? "mock" : "ready",
+            emotion: currentAffect.emotion,
+            tone: currentAffect.tone,
+            avatarState: avatarDirective.state,
+            memoryStatus: MemoryStatus(memory: memoryState),
+            isMock: apiMode == .mock
+        )
+        ttsStatus = .notRequested
         interactionNote = "Switched to \(persona.name)"
         messages.append(
             ChatMessage(
@@ -172,6 +229,11 @@ final class ChatViewModel: ObservableObject {
     }
 
     private func runHealthCheck() async {
+        guard apiMode.usesBackend else {
+            healthStatus = .available
+            return
+        }
+
         healthStatus = .checking
         do {
             let ok = try await makeAPIClient().health()
@@ -207,7 +269,7 @@ final class ChatViewModel: ObservableObject {
             let response = try await makeAPIClient().sendDialogue(request)
             applyDialogueResponse(response, userText: text)
         } catch {
-            if apiMode == .remote {
+            if apiMode.usesBackend {
                 await applyRemoteFallback(for: request, userText: text, error: error)
             } else {
                 applyDialogueError(error)
@@ -220,7 +282,7 @@ final class ChatViewModel: ObservableObject {
     private func applyRemoteFallback(for request: DialogueRequest, userText: String, error: Error) async {
         healthStatus = .unavailable(error.localizedDescription)
         do {
-            let fallback = try await AliceAPIClient(mode: .mock).sendDialogue(request)
+            let fallback = try await makeAPIClient(mode: .mock).sendDialogue(request)
             errorMessage = "Remote 不可用，已回退 Mock：\(error.localizedDescription)"
             applyDialogueResponse(fallback, userText: userText)
         } catch {
@@ -231,8 +293,14 @@ final class ChatViewModel: ObservableObject {
     private func applyDialogueResponse(_ response: DialogueResponse, userText: String) {
         currentAffect = response.affect
         memoryState = response.memory
-        avatarState = AvatarStateReducer.reduce(current: avatarState, event: .dialogueResponse(response.affect))
-        interactionNote = response.affect.motion.slot.rawValue
+        companionState = response.companionState
+        avatarDirective = response.avatarDirective
+        ttsStatus = response.ttsStatus
+        avatarState = AvatarStateReducer.state(for: response.avatarDirective, affect: response.affect)
+        interactionNote = response.avatarDirective.motionSlot.rawValue
+        if apiMode.usesBackend, response.companionState.isMock != true {
+            healthStatus = .available
+        }
         messages.append(
             ChatMessage(
                 role: .assistant,
@@ -257,6 +325,16 @@ final class ChatViewModel: ObservableObject {
             voice: VoiceAffect(style: "soft_gentle", rate: 0.96, pitch: 1.02),
             motion: MotionAffect(slot: .apologize, intensity: 0.5)
         )
+        avatarDirective = AvatarDirective(state: .error, motionSlot: .apologize, intensity: 0.5, source: "api_error")
+        companionState = CompanionState(
+            status: "error",
+            emotion: currentAffect.emotion,
+            tone: currentAffect.tone,
+            avatarState: avatarState,
+            memoryStatus: MemoryStatus(memory: memoryState),
+            isMock: apiMode == .mock
+        )
+        ttsStatus = .notRequested
         messages.append(
             ChatMessage(
                 role: .assistant,
@@ -268,12 +346,16 @@ final class ChatViewModel: ObservableObject {
         scheduleIdleReturn()
     }
 
-    private func makeAPIClient() throws -> AliceAPIClient {
-        switch apiMode {
+    private func makeAPIClient(mode overrideMode: AppAPIMode? = nil) throws -> AliceAPIClienting {
+        try apiClientFactory(overrideMode ?? apiMode, backendBaseURL)
+    }
+
+    private static func defaultAPIClientFactory(mode: AppAPIMode, backendBaseURL: String) throws -> AliceAPIClienting {
+        switch mode {
         case .mock:
             return AliceAPIClient(mode: .mock)
-        case .remote:
-            guard let url = AppSettingsStore.normalizedURL(from: backendBaseURL) else {
+        case .localhost, .lan, .remote:
+            guard let url = AppSettingsStore.effectiveBackendBaseURL(mode: mode, lanBaseURL: backendBaseURL) else {
                 throw AliceAPIError.invalidBackendURL
             }
             return AliceAPIClient(mode: .remote(baseURL: url, authToken: nil))

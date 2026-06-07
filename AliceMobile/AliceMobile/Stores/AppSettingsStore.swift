@@ -3,17 +3,35 @@ import Foundation
 
 enum AppAPIMode: String, CaseIterable, Identifiable, Equatable {
     case mock
+    case localhost
+    case lan
     case remote
 
     var id: String { rawValue }
+
+    static var allCases: [AppAPIMode] {
+        [.mock, .localhost, .lan]
+    }
 
     var label: String {
         switch self {
         case .mock:
             return "Mock"
+        case .localhost:
+            return "Localhost"
+        case .lan:
+            return "LAN IP"
         case .remote:
             return "Remote"
         }
+    }
+
+    var usesBackend: Bool {
+        self != .mock
+    }
+
+    var allowsCustomBaseURL: Bool {
+        self == .lan || self == .remote
     }
 }
 
@@ -30,14 +48,17 @@ enum BackendHealthStatus: Equatable {
         case .checking:
             return "Checking"
         case .available:
-            return "Ready"
+            return "Connected"
         case .unavailable:
-            return "Unavailable"
+            return "Disconnected"
         }
     }
 }
 
 final class AppSettingsStore: ObservableObject {
+    static let simulatorLocalhostBaseURL = "http://127.0.0.1:3000"
+    static let lanBaseURLPlaceholder = "http://<mac-lan-ip>:3000"
+
     @Published var sessionId: String {
         didSet { defaults.set(sessionId, forKey: Keys.sessionId) }
     }
@@ -75,10 +96,9 @@ final class AppSettingsStore: ObservableObject {
             memoryEnabled = defaults.bool(forKey: Keys.memoryEnabled)
         }
 
-        let storedMode = defaults.string(forKey: Keys.apiMode)
-        apiMode = AppAPIMode(rawValue: storedMode ?? "") ?? .mock
+        apiMode = Self.normalizedAPIMode(from: defaults.string(forKey: Keys.apiMode))
 
-        backendBaseURL = defaults.string(forKey: Keys.backendBaseURL) ?? "http://127.0.0.1:3000"
+        backendBaseURL = defaults.string(forKey: Keys.backendBaseURL) ?? ""
 
         if storedSessionId == nil {
             defaults.set(sessionId, forKey: Keys.sessionId)
@@ -89,7 +109,7 @@ final class AppSettingsStore: ObservableObject {
     }
 
     var remoteBaseURL: URL? {
-        Self.normalizedURL(from: backendBaseURL)
+        Self.effectiveBackendBaseURL(mode: apiMode, lanBaseURL: backendBaseURL)
     }
 
     func selectPersona(_ persona: CompanionPersona) {
@@ -105,6 +125,40 @@ final class AppSettingsStore: ObservableObject {
             return nil
         }
         return url
+    }
+
+    static func normalizedAPIMode(from rawValue: String?) -> AppAPIMode {
+        switch rawValue {
+        case AppAPIMode.localhost.rawValue:
+            return .localhost
+        case AppAPIMode.lan.rawValue:
+            return .lan
+        case AppAPIMode.remote.rawValue:
+            return .localhost
+        case AppAPIMode.mock.rawValue:
+            return .mock
+        default:
+            return .mock
+        }
+    }
+
+    static func effectiveBackendBaseURLString(mode: AppAPIMode, lanBaseURL: String) -> String? {
+        switch mode {
+        case .mock:
+            return nil
+        case .localhost:
+            return simulatorLocalhostBaseURL
+        case .lan, .remote:
+            let trimmed = lanBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+    }
+
+    static func effectiveBackendBaseURL(mode: AppAPIMode, lanBaseURL: String) -> URL? {
+        guard let value = effectiveBackendBaseURLString(mode: mode, lanBaseURL: lanBaseURL) else {
+            return nil
+        }
+        return normalizedURL(from: value)
     }
 }
 

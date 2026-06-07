@@ -150,15 +150,16 @@ private struct StatusStrip: View {
     var body: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
             StatusPill(title: "mode", value: viewModel.apiModeLabel, color: viewModel.apiMode == .mock ? AliceTheme.secondaryText : AliceTheme.mint)
-            StatusPill(title: "backend", value: viewModel.healthStatus.label, color: AliceTheme.healthColor(viewModel.healthStatus))
+            StatusPill(title: "connection", value: viewModel.connectionStateLabel, color: AliceTheme.healthColor(viewModel.healthStatus))
+            StatusPill(title: "backend_url", value: viewModel.currentBackendBaseURLDisplay, color: AliceTheme.secondaryText)
             StatusPill(title: "avatar_state", value: viewModel.avatarState.rawValue, color: AliceTheme.stateColor(viewModel.avatarState))
-            StatusPill(title: "voice", value: voiceLabel, color: AliceTheme.violetGlow)
+            StatusPill(title: "emotion_tone", value: emotionToneLabel, color: AliceTheme.violetGlow)
+            StatusPill(title: "tts", value: viewModel.ttsStatus.status, color: AliceTheme.amber)
         }
     }
 
-    private var voiceLabel: String {
-        let voice = viewModel.currentAffect.voice
-        return "\(voice.style) \(String(format: "%.2f", voice.rate))x"
+    private var emotionToneLabel: String {
+        "\(viewModel.currentAffect.emotion.rawValue) / \(viewModel.currentAffect.tone.rawValue)"
     }
 }
 

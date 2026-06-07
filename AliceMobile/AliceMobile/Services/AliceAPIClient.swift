@@ -200,11 +200,31 @@ private final class MockDialogueResponder {
         try await Task.sleep(nanoseconds: 240_000_000)
 
         let persona = CompanionPersona.find(avatarId: request.avatarId)
-        let memory = buildMemory(for: request, persona: persona)
-        let affect = decideAffect(message: request.message, persona: persona, memory: memory)
+        let memory = MemoryState.empty(
+            sessionId: request.sessionId,
+            avatarId: persona.avatarId,
+            used: request.options.useMemory
+        )
+        let memoryStatus = MemoryStatus(memory: memory)
+        let affect = Affect(
+            emotion: .warm,
+            intensity: 0.42,
+            tone: .gentle,
+            reason: "mock_contract",
+            voice: VoiceAffect(style: "gentle", rate: 1.02, pitch: 1.1),
+            motion: MotionAffect(slot: .speaking, intensity: 0.42)
+        )
+        let avatarDirective = AvatarDirective(
+            state: .speaking,
+            motionSlot: .speaking,
+            intensity: 0.42,
+            durationMs: 900,
+            returnTo: .idle,
+            source: "mock_contract"
+        )
 
         return DialogueResponse(
-            reply: buildReply(for: request.message, persona: persona, memory: memory),
+            reply: "\(persona.name) 已通过 Alice Core mock contract 返回：当前 iOS 只展示 reply、emotion、tone、avatar_state 和 memory 状态。",
             sources: [],
             memory: memory,
             rag: .disabled,
@@ -218,159 +238,18 @@ private final class MockDialogueResponder {
                 provider: request.provider,
                 model: request.model,
                 note: "iOS MVP mock mode only. No real backend call was made."
-            )
-        )
-    }
-
-    private func buildReply(for message: String, persona: CompanionPersona, memory: MemoryState) -> String {
-        let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if asksForgetMemory(text) {
-            return "可以，我不会把这句话写入长期记忆。要清除已经保存的内容，后续会走后端 /api/memory。"
-        }
-        if asksMemoryRecall(text) {
-            if let count = memory.longTerm?.count, count > 0 {
-                return "我记得你刚刚明确提到了一条偏好。当前是 iOS 本地 mock，真实长期记忆以后端为准。"
-            }
-            return "我现在还没有可用的长期记忆。你可以明确说“请记住：...”，后续会由后端判断是否适合保存。"
-        }
-        if containsMemoryIntent(text) {
-            return "收到，我会把这类明确记忆意图交给后端处理。当前 mock 只展示记忆入口和状态，不在本地保存长期明文。"
-        }
-        if text.localizedCaseInsensitiveContains("状态") || text.localizedCaseInsensitiveContains("测试") || text.localizedCaseInsensitiveContains("你好") {
-            return "\(persona.name) 现在处于 iOS 原生 mock 模式：聊天、角色、affect 和 avatar_state 链路已经跑通。"
-        }
-        if text.contains("为什么") || text.contains("怎么") || text.contains("如何") || text.contains("吗") || text.contains("?") || text.contains("？") {
-            return "这是个好问题。我会先用本地状态给你一个轻量回应；接入后端后，会通过 /api/dialogue 拿到更完整的回答。"
-        }
-        return "\(persona.name) 已收到。第一阶段我先陪你跑通原生交互骨架，真实模型、TTS 和记忆都留给后端安全接入。"
-    }
-
-    private func buildMemory(for request: DialogueRequest, persona: CompanionPersona) -> MemoryState {
-        guard request.options.useMemory else {
-            return .empty(sessionId: request.sessionId, avatarId: persona.avatarId, used: false)
-        }
-
-        let shouldStore = containsMemoryIntent(request.message)
-        let item = MemoryItem(
-            id: 1,
-            type: "preference",
-            scope: "session",
-            avatarId: persona.avatarId,
-            sessionId: request.sessionId,
-            content: "iOS mock captured an explicit memory intent.",
-            confidence: 0.72,
-            importance: 0.62,
-            status: "mock",
-            updatedAt: nil
-        )
-
-        return MemoryState(
-            used: true,
-            status: "ready",
-            sessionId: request.sessionId,
-            avatarId: persona.avatarId,
-            turnCount: 1,
-            maxTurns: 6,
-            longTerm: LongTermMemory(
-                used: true,
-                status: "ready",
-                count: shouldStore ? 1 : 0,
-                items: shouldStore ? [item] : []
             ),
-            longTermWrite: shouldStore ? LongTermWrite(stored: true, reason: "ios_mock_memory_intent") : nil
+            companionState: CompanionState(
+                status: "mock",
+                emotion: affect.emotion,
+                tone: affect.tone,
+                avatarState: avatarDirective.state,
+                memoryStatus: memoryStatus,
+                isMock: true
+            ),
+            avatarDirective: avatarDirective,
+            memoryStatus: memoryStatus,
+            ttsStatus: .notRequested
         )
-    }
-
-    private func decideAffect(message: String, persona: CompanionPersona, memory: MemoryState) -> Affect {
-        let text = message.lowercased()
-
-        if text.contains("失败") || text.contains("错误") || text.contains("不可用") {
-            return Affect(
-                emotion: .apologetic,
-                intensity: 0.62,
-                tone: .gentle,
-                reason: "error_or_fallback",
-                voice: VoiceAffect(style: "soft_gentle", rate: 0.96, pitch: 1.02),
-                motion: MotionAffect(slot: .apologize, intensity: 0.5)
-            )
-        }
-        if memory.longTermWrite?.stored == true || (memory.longTerm?.count ?? 0) > 0 {
-            return Affect(
-                emotion: .warm,
-                intensity: 0.72,
-                tone: .gentle,
-                reason: "memory_context",
-                voice: VoiceAffect(style: persona.defaultVoice.style, rate: persona.defaultVoice.rate, pitch: persona.defaultVoice.pitch),
-                motion: MotionAffect(slot: .speaking, intensity: 0.45)
-            )
-        }
-        if text.contains("谢谢") || text.contains("开心") || text.contains("喜欢") || text.contains("太好了") {
-            return Affect(
-                emotion: .happy,
-                intensity: 0.68,
-                tone: .playful,
-                reason: "positive_text",
-                voice: VoiceAffect(style: "bright_playful", rate: 1.12, pitch: 1.2),
-                motion: MotionAffect(slot: .happy, intensity: 0.72)
-            )
-        }
-        if text.contains("你好") || text.contains("hello") || text.contains("状态") || text.contains("测试") {
-            return Affect(
-                emotion: .warm,
-                intensity: 0.48,
-                tone: .gentle,
-                reason: "smoke_test",
-                voice: VoiceAffect(style: "gentle", rate: 1.02, pitch: 1.1),
-                motion: MotionAffect(slot: .speaking, intensity: 0.45)
-            )
-        }
-        if text.contains("为什么") || text.contains("怎么") || text.contains("如何") || text.contains("吗") || text.contains("?") || text.contains("？") {
-            return Affect(
-                emotion: .curious,
-                intensity: 0.52,
-                tone: .calm,
-                reason: "question_text",
-                voice: VoiceAffect(style: "thoughtful", rate: 0.98, pitch: 1.08),
-                motion: MotionAffect(slot: .thinking, intensity: 0.55)
-            )
-        }
-        if persona.tone.contains("playful") {
-            return Affect(
-                emotion: .warm,
-                intensity: 0.5,
-                tone: .encouraging,
-                reason: "persona_default",
-                voice: VoiceAffect(style: "playful_bright", rate: 1.08, pitch: 1.16),
-                motion: MotionAffect(slot: .happy, intensity: 0.56)
-            )
-        }
-        return Affect.default(for: persona)
-    }
-
-    private func containsMemoryIntent(_ text: String) -> Bool {
-        text.contains("请记住") ||
-            text.contains("帮我记住") ||
-            text.contains("你要记得") ||
-            text.contains("以后你要记得") ||
-            text.contains("我的目标是") ||
-            text.contains("我喜欢") ||
-            text.contains("我不喜欢")
-    }
-
-    private func asksMemoryRecall(_ text: String) -> Bool {
-        text.contains("你还记得") ||
-            text.contains("还记得吗") ||
-            text.contains("记得什么") ||
-            text.contains("长期记忆")
-    }
-
-    private func asksForgetMemory(_ text: String) -> Bool {
-        text.contains("忘记这个") ||
-            text.contains("忘掉这个") ||
-            text.contains("别记这个") ||
-            text.contains("不要记这个") ||
-            text.contains("删除记忆") ||
-            text.contains("清除记忆")
     }
 }
