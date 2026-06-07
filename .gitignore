@@ -1,24 +1,75 @@
 # macOS
 .DS_Store
 **/.DS_Store
+*.swp
+*.swo
 
 # Xcode user state
 xcuserdata/
 *.xcuserstate
 *.xcuserdatad/
+*.xccheckout
+*.moved-aside
+*.xcscmblueprint
 
 # Xcode build
 DerivedData/
 build/
+Build/
+*.xcarchive
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.hmap
+*.ipa.zip
+*.result
+*.xcresult
 
 # Swift Package Manager
 .build/
+Package.resolved
 
 # CocoaPods
 Pods/
+
+# Carthage
+Carthage/Build/
 
 # Fastlane
 fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output/
+fastlane/.env
+fastlane/.env.*
+
+# Environment and local configuration
+.env
+.env.*
+!.env.example
+*.local
+*.local.*
+
+# Apple signing, certificates, and private keys
+*.cer
+*.certSigningRequest
+*.mobileprovision
+*.provisionprofile
+*.p8
+*.p12
+*.key
+*.pem
+*.der
+*.crt
+AuthKey_*.p8
+
+# App/service configuration files that may contain secrets
+GoogleService-Info.plist
+ServiceAccount*.json
+service-account*.json
+firebase-debug.log
+
+# Logs and temporary output
+*.log
+tmp/
+temp/
