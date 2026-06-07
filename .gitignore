@@ -28,6 +28,7 @@ Build/
 # Swift Package Manager
 .build/
 Package.resolved
+!AliceMobile/AliceMobile.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
 # CocoaPods
 Pods/
@@ -73,3 +74,6 @@ firebase-debug.log
 *.log
 tmp/
 temp/
+
+# Local design references
+docs/design-references/

@@ -29,6 +29,7 @@ enum AliceAPIError: LocalizedError, Equatable {
     case httpStatus(Int)
     case backend(code: String?, message: String)
     case missingData
+    case invalidBackendURL
 
     var errorDescription: String? {
         switch self {
@@ -40,7 +41,28 @@ enum AliceAPIError: LocalizedError, Equatable {
             return message
         case .missingData:
             return "后端没有返回可用数据。"
+        case .invalidBackendURL:
+            return "后端地址不可用，请检查 Base URL。"
         }
+    }
+}
+
+struct AliceAPIResponseDecoder {
+    static func decodeDialogue(data: Data, decoder: JSONDecoder = JSONDecoder()) throws -> DialogueResponse {
+        if let envelope = try? decoder.decode(APIEnvelope<DialogueResponse>.self, from: data) {
+            guard envelope.ok else {
+                throw AliceAPIError.backend(
+                    code: envelope.error?.code,
+                    message: envelope.error?.message ?? "对话接口返回失败。"
+                )
+            }
+            guard let response = envelope.data else {
+                throw AliceAPIError.missingData
+            }
+            return response
+        }
+
+        return try decoder.decode(DialogueResponse.self, from: data)
     }
 }
 
@@ -134,20 +156,7 @@ final class AliceAPIClient: AliceAPIClienting {
         let (data, response) = try await session.data(for: request)
         try validate(response: response)
 
-        if let envelope = try? decoder.decode(APIEnvelope<DialogueResponse>.self, from: data) {
-            guard envelope.ok else {
-                throw AliceAPIError.backend(
-                    code: envelope.error?.code,
-                    message: envelope.error?.message ?? "对话接口返回失败。"
-                )
-            }
-            guard let response = envelope.data else {
-                throw AliceAPIError.missingData
-            }
-            return response
-        }
-
-        return try decoder.decode(DialogueResponse.self, from: data)
+        return try AliceAPIResponseDecoder.decodeDialogue(data: data, decoder: decoder)
     }
 
     private func validate(response: URLResponse) throws {

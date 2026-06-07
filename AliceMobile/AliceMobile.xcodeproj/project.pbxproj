@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B7B583622FD60000008B8EA6 /* RiveRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = B7B583612FD60000008B8EA6 /* RiveRuntime */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		B7B583392FD435AF008B8EA6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B7B583622FD60000008B8EA6 /* RiveRuntime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +117,7 @@
 			);
 			name = AliceMobile;
 			packageProductDependencies = (
+				B7B583612FD60000008B8EA6 /* RiveRuntime */,
 			);
 			productName = AliceMobile;
 			productReference = B7B5832B2FD435AD008B8EA6 /* AliceMobile.app */;
@@ -195,6 +201,9 @@
 			);
 			mainGroup = B7B583222FD435AD008B8EA6;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B7B583602FD60000008B8EA6 /* XCRemoteSwiftPackageReference "rive-ios" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B7B5832C2FD435AD008B8EA6 /* Products */;
 			projectDirPath = "";
@@ -570,6 +579,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B7B583602FD60000008B8EA6 /* XCRemoteSwiftPackageReference "rive-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rive-app/rive-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 6.20.5;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B7B583612FD60000008B8EA6 /* RiveRuntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B7B583602FD60000008B8EA6 /* XCRemoteSwiftPackageReference "rive-ios" */;
+			productName = RiveRuntime;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B7B583232FD435AD008B8EA6 /* Project object */;
 }
