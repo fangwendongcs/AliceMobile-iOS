@@ -255,8 +255,11 @@ struct AliceMobileTests {
         #expect(viewModel.errorMessage?.contains("已回退 Mock") == true)
         #expect(viewModel.messages.last?.text == "Fallback mock contract.")
         #expect(viewModel.companionState.isMock == true)
+        #expect(viewModel.contractStateLabel == "mock contract")
         #expect(viewModel.avatarState == .speaking)
         #expect(viewModel.avatarDirective.source == "test_mock_contract")
+        #expect(viewModel.avatarDirectiveLabel.contains("test_mock_contract"))
+        #expect(viewModel.memoryBadgeLabel == "0 remembered")
     }
 }
 

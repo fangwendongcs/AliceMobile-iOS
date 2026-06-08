@@ -151,8 +151,10 @@ private struct StatusStrip: View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
             StatusPill(title: "mode", value: viewModel.apiModeLabel, color: viewModel.apiMode == .mock ? AliceTheme.secondaryText : AliceTheme.mint)
             StatusPill(title: "connection", value: viewModel.connectionStateLabel, color: AliceTheme.healthColor(viewModel.healthStatus))
+            StatusPill(title: "contract", value: viewModel.contractStateLabel, color: viewModel.companionState.isMock == true ? AliceTheme.secondaryText : AliceTheme.mint)
             StatusPill(title: "backend_url", value: viewModel.currentBackendBaseURLDisplay, color: AliceTheme.secondaryText)
             StatusPill(title: "avatar_state", value: viewModel.avatarState.rawValue, color: AliceTheme.stateColor(viewModel.avatarState))
+            StatusPill(title: "directive", value: viewModel.avatarDirectiveLabel, color: AliceTheme.stateColor(viewModel.avatarDirective.state))
             StatusPill(title: "emotion_tone", value: emotionToneLabel, color: AliceTheme.violetGlow)
             StatusPill(title: "tts", value: viewModel.ttsStatus.status, color: AliceTheme.amber)
         }
@@ -178,7 +180,7 @@ private struct MemorySummary: View {
 
             Spacer()
 
-            Text("\(viewModel.memoryState.longTerm?.count ?? 0) long-term")
+            Text(viewModel.memoryBadgeLabel)
                 .font(.caption.weight(.medium))
                 .foregroundStyle(AliceTheme.secondaryText)
 

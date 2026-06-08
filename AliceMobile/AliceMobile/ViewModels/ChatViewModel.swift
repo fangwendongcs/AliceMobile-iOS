@@ -74,6 +74,28 @@ final class ChatViewModel: ObservableObject {
         AppSettingsStore.effectiveBackendBaseURLString(mode: apiMode, lanBaseURL: backendBaseURL) ?? "Mock contract"
     }
 
+    var contractStateLabel: String {
+        if companionState.isMock == true {
+            return "mock contract"
+        }
+        if !apiMode.usesBackend {
+            return "local contract"
+        }
+        return companionState.status.isEmpty ? "remote contract" : companionState.status
+    }
+
+    var avatarDirectiveLabel: String {
+        "\(avatarDirective.source) \(String(format: "%.2f", avatarDirective.intensity))"
+    }
+
+    var memoryBadgeLabel: String {
+        let status = companionState.memoryStatus ?? MemoryStatus(memory: memoryState)
+        guard status.used, memoryEnabled else {
+            return "disabled"
+        }
+        return "\(status.longTermCount) remembered"
+    }
+
     var canCheckBackendHealth: Bool {
         apiMode.usesBackend && AppSettingsStore.effectiveBackendBaseURL(mode: apiMode, lanBaseURL: backendBaseURL) != nil
     }

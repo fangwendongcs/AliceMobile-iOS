@@ -98,6 +98,8 @@ AliceMobile/AliceMobile/
   Views/         SwiftUI 原生界面
 docs/
   mobile-handoff/
+  DEMO_ACCEPTANCE.md
+  RIVE_INTEGRATION.md
   WEB_MIGRATION_AUDIT.md
 ```
 
