@@ -48,14 +48,14 @@ Web 项目路径：
 - Motion slot：`idle`、`intro`、`headTap`、`legTap`、`armTap`、`bodyTap`、`chat`、`speaking`、`listening`，并为 iOS affect 补充 `thinking`、`happy`、`apologize`。
 - Avatar state：`idle`、`listening`、`thinking`、`speaking`、`reacting`、`error`、`head_action`、`arm_action`、`leg_action` 等 Swift enum。
 - 记忆边界：iOS 只保存非敏感 session/角色/开关，长期记忆主库以后端为准。
-- Mock reply：参考 Web stub provider 的本地演示语义，保留“链路跑通、真实模型后续接入”的表达。
+- Mock contract：保留固定 mock response fixture，用于展示统一契约字段，不在 iOS 本地做人格、记忆或情绪决策。
 
 ## 未迁移内容及原因
 
 - Three.js、WebGL、FBXLoader、AnimationMixer：浏览器 3D runtime，不适合直接进入 SwiftUI MVP。
 - Web AnimationController、MotionManager、ActionQueue：与 Web 3D 播放和 retarget 绑定，本阶段只迁移状态语义。
 - DOM 控制器、CSS 和浏览器 UI：平台实现不同，iOS 使用 SwiftUI 原生视图。
-- Browser speechSynthesis、Web Audio：浏览器专用；后续用 AVSpeechSynthesizer 或后端 `/api/tts`。
+- Browser speechSynthesis、Web Audio：浏览器专用；当前用 AVSpeechSynthesizer，本阶段不接后端 `/api/tts`。
 - GLB / VRM / FBX 模型资产：授权、体积、骨骼兼容和原生渲染方案仍需单独评估。
 - Node backend、RAG、n8n、Qdrant：继续作为后端能力，不在 iOS 本地运行。
 - Web manifest 的 `model.url`、`transform`、`camera`、`hitRegions`、`retargeting`：与 Web runtime 强绑定，本阶段不作为 iOS 运行依赖。
@@ -68,7 +68,7 @@ Web 项目路径：
 - `AliceMobile/AliceMobile/Models/AvatarState.swift`
 - `AliceMobile/AliceMobile/Models/DialogueModels.swift`
 - `AliceMobile/AliceMobile/Services/AliceAPIClient.swift`
-- `AliceMobile/AliceMobile/Stores/SessionStore.swift`
+- `AliceMobile/AliceMobile/Stores/AppSettingsStore.swift`
 - `AliceMobile/AliceMobile/ViewModels/ChatViewModel.swift`
 - `AliceMobile/AliceMobile/Views/CompanionHomeView.swift`
 
@@ -76,5 +76,5 @@ Web 项目路径：
 
 - 本阶段没有新增真实密钥、证书、Apple 账号或 Provisioning Profile。
 - `AliceAPIClient` 默认 `.mock`，不会自动请求真实后端。
-- Remote 模式只保留骨架，token 由调用方运行时传入，不硬编码。
+- Localhost / LAN IP 模式只接 `/api/health` 与 `/api/dialogue`，不硬编码 token。
 - `.gitignore` 已覆盖 Xcode 用户状态、构建产物、环境文件、证书、私钥、provisioning profile 和常见服务配置文件。

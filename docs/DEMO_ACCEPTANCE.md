@@ -6,11 +6,11 @@
 
 1. 打开 App，默认进入 `Mock` 模式。
 2. 选择 Alice / Shiro / Wambo 中任意角色。
-3. 打开 Settings，确认 Voice Output 为 On，并查看 Connection 的 Mock/Remote 状态与 Avatar 的 Rive 状态。
+3. 打开 Settings，确认 Voice Output 为 On，并查看 Connection 的 Mock/Localhost/LAN 状态与 Avatar 的 Rive 状态。
 4. 回到首页发送一条中文消息。
 5. Avatar 应进入 `speaking`，同时播放 iOS 本地语音。
 6. 语音结束后 Avatar 应回到 `idle`。
-7. 再次打开 Settings，展示 Mock/Remote、Voice Output、Rive asset ready / SwiftUI fallback 状态。
+7. 再次打开 Settings，展示 Mock/Localhost/LAN、Voice Output、Rive asset ready / SwiftUI fallback 状态。
 
 ## 默认 Mock 路径
 
@@ -57,6 +57,7 @@
    - `/api/health` 可用时 `connection = connected`。
    - `/api/dialogue` 返回 `avatar_directive` 时优先驱动 Avatar。
    - 后端失败时 `connection = disconnected`，App 回退 Mock contract，不崩溃。
+   - 真机调试时选择 `LAN IP` 并填写 `http://<mac-lan-ip>:3000`，不要把个人 IP 提交到 Git。
 
 ## 安全边界
 

@@ -2,6 +2,8 @@
 
 本文定义 `AliceMobile-iOS` 需要调用的后端 API。当前后端入口是 `backend/server.js`，路由在 `backend/routes/router.js`。移动端应通过后端 API 调用模型、TTS、记忆和角色能力，不直接调用第三方 provider secret API。
 
+> 2026-06-11 当前 AliceMobile-iOS 主线说明：本文是完整历史契约参考。当前实现只把 `/api/health` 和 `/api/dialogue` 作为 Remote 主线；不接后端 `/api/tts`、RAG、n8n 或 Qdrant。当前契约入口见 `../API_CONTRACT.md`。
+
 ## 总原则
 
 - iOS 原生 App 不保存 OpenAI、MiniMax、Qwen、DeepSeek、n8n、Qdrant 或其它 provider secret。
@@ -265,6 +267,8 @@ iOS 建议：
 ## POST /api/tts
 
 用途：后端 TTS 代理，返回音频二进制。
+
+当前 AliceMobile-iOS 阶段不接该接口。Voice Output 使用 iOS `AVSpeechSynthesizer` 本地 fallback，不保存 TTS provider secret。
 
 OpenAI TTS 请求：
 

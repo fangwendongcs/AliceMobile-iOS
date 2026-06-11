@@ -4,6 +4,8 @@
 
 ## 迁移目标
 
+> 2026-06-11 当前 AliceMobile-iOS 主线说明：本文是迁移范围历史参考。当前 Demo 不接后端 `/api/tts`、RAG、n8n、Qdrant、VRM、SceneKit、RealityKit 或 WebView。当前主线以 `docs/PROJECT_CONTEXT.md`、`docs/ARCHITECTURE.md` 和 `docs/API_CONTRACT.md` 为准。
+
 `AliceMobile-iOS` 的目标是复用当前项目已经验证过的产品语义和后端能力：
 
 - 角色人格
@@ -22,7 +24,7 @@
 | 产品定位 | 文档 / PRD 迁移 | AI digital companion，而不是普通 chatbot |
 | Alice / Shiro / Wambo 人格 | Swift 本地模型 + 后端 persona API | 先静态内置，后续从后端拉取 |
 | `/api/dialogue` | 原生网络调用 | 移动端主 chat API |
-| `/api/tts` | 原生网络调用 + AVAudioPlayer | 只传非密钥参数，密钥留后端 |
+| `/api/tts` | 当前不迁移 | 本阶段使用 iOS `AVSpeechSynthesizer` 本地 fallback，不调用后端 TTS |
 | `/api/memory` | 原生网络调用 | 展示和清除长期记忆摘要 |
 | `affect` schema | Swift Codable 模型 | 驱动语音、表情、Avatar 状态 |
 | AvatarState / MotionSlot 名称 | Swift enum | 作为轻量状态机输入 |
@@ -54,8 +56,8 @@
 | `PersonaStore` | 管理当前 avatarId / personaId / tone / voiceStyle |
 | `MemoryViewModel` | 读取、展示、清空长期记忆摘要 |
 | `AvatarStateReducer` | 从 dialogue / audio / interaction 事件推导 AvatarState |
-| `AudioPlaybackService` | 播放后端 TTS 音频，失败时降级 AVSpeechSynthesizer |
-| `SessionStore` | 保存 sessionId、selectedAvatarId、memoryEnabled 等非敏感设置 |
+| `VoiceOutputService` | 使用 iOS AVSpeechSynthesizer 做本地语音 fallback |
+| `AppSettingsStore` | 保存 sessionId、selectedAvatarId、memoryEnabled、voiceOutputEnabled、apiMode、backendBaseURL 等非敏感设置 |
 | `CompanionHomeView` | 原生主界面：Avatar 状态、聊天、语音、记忆入口 |
 
 ## 分阶段迁移建议
@@ -72,11 +74,11 @@
 - SwiftUI 单页 companion 界面。
 - 文本输入调用 `/api/dialogue`。
 - 展示 reply、thinking、persona、memory badge、affect 状态。
-- TTS 可先用 iOS 本机语音，后续接 `/api/tts`。
+- TTS 当前使用 iOS 本机语音；后端 `/api/tts` 不进入当前主线。
 
 ### Phase iOS-2：语音与记忆
 
-- 接入后端 TTS 二进制音频。
+- 继续打磨本地 Voice Output；后端 TTS 只有在用户明确改变阶段目标时再评估。
 - 接入 memory list / clear。
 - 支持 Alice / Shiro / Wambo 切换。
 - 用 `affect.motion.slot` 驱动轻量 Avatar 动效。
@@ -95,4 +97,3 @@
 - 能开启或关闭 memory，并调用 `/api/memory` 清理。
 - 没有 OpenAI、MiniMax、n8n、Qdrant、API provider secret 出现在 iOS 代码或 plist 中。
 - Three.js、FBXLoader、DOM 事件、CSS 布局代码没有进入 iOS 项目。
-

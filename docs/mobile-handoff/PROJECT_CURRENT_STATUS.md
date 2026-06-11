@@ -4,6 +4,8 @@
 
 本文用于把当前 AI Companion Alice Web / Backend 项目的产品进度交接给后续独立 iOS 原生项目 `AliceMobile-iOS`。结论先写清楚：iOS 项目应是独立 SwiftUI 原生项目，不是 WebView，也不是桌面 Web 的完整移植。移动端优先复用后端 API、人格、记忆、情绪状态、对话流程和资源命名约定，不直接复用 Three.js、FBX、DOM UI 或 Web 动画运行时代码。
 
+> 2026-06-11 当前 AliceMobile-iOS 主线说明：本文是 Web 项目交接快照，不是当前 iOS 路线唯一来源。当前主线以 `docs/PROJECT_CONTEXT.md`、`docs/ARCHITECTURE.md` 和 `docs/API_CONTRACT.md` 为准。当前 iOS 不接 `/api/tts`、RAG、n8n、Qdrant、VRM、SceneKit、RealityKit 或 WebView。
+
 ## 当前阶段
 
 当前项目是一个本地 MVP / 产品 Demo 基线：
@@ -106,7 +108,7 @@ iOS 端应把 `reply` 用于文本展示，把 `affect.voice` 用于语音参数
 
 - 当前没有独立 `GET /api/personas` 接口；persona 信息主要在后端配置和 `/api/dialogue` 的 `meta.persona` 中暴露。
 - 当前没有独立 `/api/avatar-state` 接口；avatar state 主要由前端从 dialogue / audio / interaction 事件派生。
-- `/api/tts` 返回音频二进制，不是 `{ ok, data }` JSON 包装。
+- `/api/tts` 返回音频二进制，不是 `{ ok, data }` JSON 包装；当前 iOS 主线不接该接口。
 - `/api/avatars` 当前返回 registry 原始结构，仍处于兼容迁移期。
 - 单 token API auth 是部署前基线，不等于完整移动端用户登录系统。公开 iOS App 不应内置长期静态 token。
 
@@ -114,9 +116,8 @@ iOS 端应把 `reply` 用于文本展示，把 `affect.voice` 用于语音参数
 
 1. 新建独立 SwiftUI 项目 `AliceMobile-iOS`。
 2. 先做轻量 2D / 状态化 Avatar，不迁移 Three.js 3D 场景。
-3. 实现 `AliceAPIClient`，优先接入 `/api/health`、`/api/providers`、`/api/dialogue`、`/api/tts`、`/api/memory`。
+3. `AliceAPIClient` 当前只把 `/api/health` 和 `/api/dialogue` 作为主线；`/api/memory` 保留解码能力，`/api/tts` 不进入当前阶段。
 4. 建立 Swift 侧状态模型：`DialogueState`、`AffectState`、`AvatarState`、`PersonaState`、`MemorySummary`。
 5. 复用 Alice / Shiro / Wambo 的人格配置和 tone / voice / motion 语义。
 6. 在后端补齐移动端需要的只读 persona API 和可选 avatar-state API，而不是让 iOS 读取 Web 配置文件。
 7. 再评估是否需要 RealityKit / SceneKit / Rive / Lottie 的高表现 Avatar 方案。
-
