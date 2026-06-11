@@ -608,6 +608,11 @@ struct TTSStatus: Codable, Equatable {
     var voice: String?
 
     static let notRequested = TTSStatus(used: false, status: "not_requested", provider: nil, voice: nil)
+    static let disabled = TTSStatus(used: false, status: "disabled", provider: "ios_avspeech", voice: nil)
+
+    static func localSpeech(status: String, voice: String?) -> TTSStatus {
+        TTSStatus(used: true, status: status, provider: "ios_avspeech", voice: voice)
+    }
 
     init(used: Bool, status: String, provider: String? = nil, voice: String? = nil) {
         self.used = used

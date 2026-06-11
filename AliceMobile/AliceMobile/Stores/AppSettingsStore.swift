@@ -71,6 +71,10 @@ final class AppSettingsStore: ObservableObject {
         didSet { defaults.set(memoryEnabled, forKey: Keys.memoryEnabled) }
     }
 
+    @Published var voiceOutputEnabled: Bool {
+        didSet { defaults.set(voiceOutputEnabled, forKey: Keys.voiceOutputEnabled) }
+    }
+
     @Published var apiMode: AppAPIMode {
         didSet { defaults.set(apiMode.rawValue, forKey: Keys.apiMode) }
     }
@@ -94,6 +98,12 @@ final class AppSettingsStore: ObservableObject {
             memoryEnabled = true
         } else {
             memoryEnabled = defaults.bool(forKey: Keys.memoryEnabled)
+        }
+
+        if defaults.object(forKey: Keys.voiceOutputEnabled) == nil {
+            voiceOutputEnabled = true
+        } else {
+            voiceOutputEnabled = defaults.bool(forKey: Keys.voiceOutputEnabled)
         }
 
         apiMode = Self.normalizedAPIMode(from: defaults.string(forKey: Keys.apiMode))
@@ -166,6 +176,7 @@ private enum Keys {
     static let sessionId = "alice.mobile.sessionId"
     static let selectedAvatarId = "alice.mobile.selectedAvatarId"
     static let memoryEnabled = "alice.mobile.memoryEnabled"
+    static let voiceOutputEnabled = "alice.mobile.voiceOutputEnabled"
     static let apiMode = "alice.mobile.apiMode"
     static let backendBaseURL = "alice.mobile.backendBaseURL"
 }

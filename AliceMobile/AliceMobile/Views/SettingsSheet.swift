@@ -73,6 +73,14 @@ struct SettingsSheet: View {
                         .truncationMode(.middle)
                 }
 
+                Section("Voice") {
+                    Toggle("Voice Output", isOn: $viewModel.voiceOutputEnabled)
+                    SettingsValueRow(title: "Status", value: voiceOutputStatus)
+                    Text("Uses iOS AVSpeechSynthesizer as a local fallback. No TTS secret or provider key is stored.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Security") {
                     Text("No provider keys are stored in this app.")
                         .font(.caption)
@@ -112,6 +120,13 @@ struct SettingsSheet: View {
             return "Rive requested, SwiftUI fallback active"
         }
         return "\(viewModel.avatarRendererPreference.label) active"
+    }
+
+    private var voiceOutputStatus: String {
+        if !viewModel.voiceOutputEnabled {
+            return "disabled"
+        }
+        return viewModel.ttsStatus.status
     }
 
     private var connectionHelpText: String {

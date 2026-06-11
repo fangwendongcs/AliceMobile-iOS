@@ -10,7 +10,7 @@ Rive 只负责表现层。`RiveAvatarStateMachineBridge` 消费 `DialogueRespons
 - 放置位置：`AliceMobile/AliceMobile/alice_avatar.riv`
 - 推荐默认 state machine 名称：`AliceAvatar`
 
-当前代码用 `Bundle.main.url(forResource: "alice_avatar", withExtension: "riv")` 检测资源，并用 `RiveViewModel(fileName: "alice_avatar", stateMachineName: nil)` 加载默认 state machine。请在 Rive Editor 中把正式状态机设为默认，或后续在代码里显式填入状态机名称。
+当前代码用 `Bundle.main.url(forResource: "alice_avatar", withExtension: "riv")` 检测资源，并用 `RiveViewModel(fileName: "alice_avatar", stateMachineName: "AliceAvatar")` 加载约定的 state machine。正式素材应在 Rive Editor 中提供 `AliceAvatar` 状态机。
 
 Settings 的 Avatar 区域会显示素材状态：
 

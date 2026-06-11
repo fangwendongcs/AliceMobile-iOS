@@ -21,6 +21,22 @@ final class ChatViewModel: ObservableObject {
     @Published private(set) var healthStatus: BackendHealthStatus
     @Published private(set) var activeBodyPart: BodyPart?
     @Published var avatarRendererPreference: AvatarRendererPreference
+    @Published var voiceOutputEnabled: Bool {
+        didSet {
+            settingsStore.voiceOutputEnabled = voiceOutputEnabled
+            if voiceOutputEnabled {
+                if ttsStatus == .disabled {
+                    ttsStatus = .notRequested
+                }
+            } else {
+                voiceOutput.stop()
+                ttsStatus = .disabled
+                if avatarState == .speaking {
+                    setAvatarPlaybackState(.idle, source: "voice_disabled")
+                }
+            }
+        }
+    }
 
     @Published var memoryEnabled: Bool {
         didSet {
@@ -111,11 +127,13 @@ final class ChatViewModel: ObservableObject {
 
     private let settingsStore: AppSettingsStore
     private let apiClientFactory: AliceAPIClientFactory
+    private let voiceOutput: VoiceOutputing
     private var lastUserMessage: String?
 
     init(
         settingsStore: AppSettingsStore? = nil,
-        apiClientFactory: @escaping AliceAPIClientFactory = ChatViewModel.defaultAPIClientFactory
+        apiClientFactory: @escaping AliceAPIClientFactory = ChatViewModel.defaultAPIClientFactory,
+        voiceOutput: VoiceOutputing? = nil
     ) {
         let resolvedSettingsStore = settingsStore ?? AppSettingsStore()
         let resolvedPersona = CompanionPersona.find(avatarId: resolvedSettingsStore.selectedAvatarId)
@@ -130,6 +148,7 @@ final class ChatViewModel: ObservableObject {
 
         self.settingsStore = resolvedSettingsStore
         self.apiClientFactory = apiClientFactory
+        self.voiceOutput = voiceOutput ?? AVSpeechVoiceOutput()
         personas = CompanionPersona.all
         selectedPersona = resolvedPersona
         draft = ""
@@ -147,7 +166,7 @@ final class ChatViewModel: ObservableObject {
             isMock: resolvedSettingsStore.apiMode == .mock
         )
         avatarDirective = resolvedAvatarDirective
-        ttsStatus = .notRequested
+        ttsStatus = resolvedSettingsStore.voiceOutputEnabled ? .notRequested : .disabled
         backendBaseURL = resolvedSettingsStore.backendBaseURL
         isSending = false
         errorMessage = nil
@@ -155,6 +174,7 @@ final class ChatViewModel: ObservableObject {
         healthStatus = resolvedSettingsStore.apiMode == .mock ? .available : .unknown
         activeBodyPart = nil
         avatarRendererPreference = .rive
+        voiceOutputEnabled = resolvedSettingsStore.voiceOutputEnabled
         messages = [
             ChatMessage(
                 role: .assistant,
@@ -182,7 +202,7 @@ final class ChatViewModel: ObservableObject {
             memoryStatus: MemoryStatus(memory: memoryState),
             isMock: apiMode == .mock
         )
-        ttsStatus = .notRequested
+        ttsStatus = voiceOutputEnabled ? .notRequested : .disabled
         interactionNote = "Switched to \(persona.name)"
         messages.append(
             ChatMessage(
@@ -242,6 +262,8 @@ final class ChatViewModel: ObservableObject {
         errorMessage = nil
         avatarState = .idle
         activeBodyPart = nil
+        voiceOutput.stop()
+        ttsStatus = voiceOutputEnabled ? .notRequested : .disabled
     }
 
     func checkBackendHealth() {
@@ -271,6 +293,10 @@ final class ChatViewModel: ObservableObject {
         isSending = true
         errorMessage = nil
         activeBodyPart = nil
+        voiceOutput.stop()
+        if voiceOutputEnabled {
+            ttsStatus = .notRequested
+        }
         avatarState = AvatarStateReducer.reduce(current: avatarState, event: .userSentMessage)
         interactionNote = "Thinking"
 
@@ -289,7 +315,7 @@ final class ChatViewModel: ObservableObject {
 
         do {
             let response = try await makeAPIClient().sendDialogue(request)
-            applyDialogueResponse(response, userText: text)
+            await completeDialogueResponse(response, userText: text)
         } catch {
             if apiMode.usesBackend {
                 await applyRemoteFallback(for: request, userText: text, error: error)
@@ -298,7 +324,9 @@ final class ChatViewModel: ObservableObject {
             }
         }
 
-        isSending = false
+        if isSending {
+            isSending = false
+        }
     }
 
     private func applyRemoteFallback(for request: DialogueRequest, userText: String, error: Error) async {
@@ -306,18 +334,27 @@ final class ChatViewModel: ObservableObject {
         do {
             let fallback = try await makeAPIClient(mode: .mock).sendDialogue(request)
             errorMessage = "Remote 不可用，已回退 Mock：\(error.localizedDescription)"
-            applyDialogueResponse(fallback, userText: userText)
+            await completeDialogueResponse(fallback, userText: userText)
         } catch {
             applyDialogueError(error)
         }
     }
 
-    private func applyDialogueResponse(_ response: DialogueResponse, userText: String) {
+    private func completeDialogueResponse(_ response: DialogueResponse, userText: String) async {
+        let shouldSpeak = shouldPlayLocalVoice(for: response)
+        applyDialogueResponse(response, userText: userText, scheduleIdle: !shouldSpeak)
+        isSending = false
+        if shouldSpeak {
+            await playLocalVoice(for: response)
+        }
+    }
+
+    private func applyDialogueResponse(_ response: DialogueResponse, userText: String, scheduleIdle: Bool = true) {
         currentAffect = response.affect
         memoryState = response.memory
         companionState = response.companionState
         avatarDirective = response.avatarDirective
-        ttsStatus = response.ttsStatus
+        ttsStatus = voiceOutputEnabled ? response.ttsStatus : .disabled
         avatarState = AvatarStateReducer.state(for: response.avatarDirective, affect: response.affect)
         interactionNote = response.avatarDirective.motionSlot.rawValue
         if apiMode.usesBackend, response.companionState.isMock != true {
@@ -332,7 +369,9 @@ final class ChatViewModel: ObservableObject {
             )
         )
         lastUserMessage = userText
-        scheduleIdleReturn()
+        if scheduleIdle {
+            scheduleIdleReturn()
+        }
     }
 
     private func applyDialogueError(_ error: Error) {
@@ -356,7 +395,7 @@ final class ChatViewModel: ObservableObject {
             memoryStatus: MemoryStatus(memory: memoryState),
             isMock: apiMode == .mock
         )
-        ttsStatus = .notRequested
+        ttsStatus = voiceOutputEnabled ? .notRequested : .disabled
         messages.append(
             ChatMessage(
                 role: .assistant,
@@ -366,6 +405,65 @@ final class ChatViewModel: ObservableObject {
             )
         )
         scheduleIdleReturn()
+    }
+
+    private func shouldPlayLocalVoice(for response: DialogueResponse) -> Bool {
+        voiceOutputEnabled && !response.reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func playLocalVoice(for response: DialogueResponse) async {
+        let voiceName = response.affect.voice.style
+        ttsStatus = .localSpeech(status: "speaking", voice: voiceName)
+        setAvatarPlaybackState(
+            .speaking,
+            intensity: max(response.avatarDirective.intensity, 0.45),
+            returnTo: response.avatarDirective.returnTo ?? .idle,
+            source: "ios_avspeech"
+        )
+
+        do {
+            try await voiceOutput.speak(response.reply, voice: response.affect.voice, persona: selectedPersona)
+            guard voiceOutputEnabled else {
+                ttsStatus = .disabled
+                return
+            }
+            ttsStatus = .localSpeech(status: "completed", voice: voiceName)
+        } catch is CancellationError {
+            ttsStatus = voiceOutputEnabled ? .notRequested : .disabled
+        } catch {
+            errorMessage = "Voice Output 暂时不可用：\(error.localizedDescription)"
+            ttsStatus = .localSpeech(status: "failed", voice: voiceName)
+        }
+
+        guard voiceOutputEnabled else { return }
+        let returnState = response.avatarDirective.returnTo ?? .idle
+        setAvatarPlaybackState(returnState, intensity: 0.2, source: "ios_avspeech_return")
+    }
+
+    private func setAvatarPlaybackState(
+        _ state: AvatarState,
+        intensity: Double = 0.2,
+        returnTo: AvatarState? = .idle,
+        source: String
+    ) {
+        avatarState = state
+        activeBodyPart = nil
+        interactionNote = state == .speaking ? "Speaking" : "Avatar ready"
+        avatarDirective = AvatarDirective(
+            state: state,
+            motionSlot: state == .speaking ? .speaking : .idle,
+            intensity: intensity,
+            returnTo: returnTo,
+            source: source
+        )
+        companionState = CompanionState(
+            status: companionState.status,
+            emotion: companionState.emotion ?? currentAffect.emotion,
+            tone: companionState.tone ?? currentAffect.tone,
+            avatarState: state,
+            memoryStatus: companionState.memoryStatus ?? MemoryStatus(memory: memoryState),
+            isMock: companionState.isMock
+        )
     }
 
     private func makeAPIClient(mode overrideMode: AppAPIMode? = nil) throws -> AliceAPIClienting {

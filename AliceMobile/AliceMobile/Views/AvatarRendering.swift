@@ -183,7 +183,7 @@ private struct RiveRuntimeAvatarView: View {
 private final class RiveAvatarRuntimeController: Combine.ObservableObject {
     private let viewModel = RiveViewModel(
         fileName: RiveAvatarAsset.fileName,
-        stateMachineName: nil,
+        stateMachineName: RiveAvatarAsset.expectedStateMachineName,
         fit: .contain,
         alignment: .center,
         autoPlay: true,

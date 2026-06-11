@@ -219,10 +219,70 @@ struct AliceMobileTests {
         #expect(AppSettingsStore.effectiveBackendBaseURL(mode: .lan, lanBaseURL: "http://macbook.local:3000") != nil)
     }
 
+    @Test func voiceOutputEnabledDefaultsToOn() async throws {
+        let settings = AppSettingsStore(defaults: isolatedDefaults())
+        let voiceOutput = SuspendedVoiceOutput()
+        let viewModel = ChatViewModel(settingsStore: settings, voiceOutput: voiceOutput)
+
+        #expect(settings.voiceOutputEnabled == true)
+        #expect(viewModel.voiceOutputEnabled == true)
+        #expect(viewModel.ttsStatus == .notRequested)
+    }
+
+    @Test func replyTriggersLocalSpeakingStateWhenVoiceEnabled() async throws {
+        let settings = AppSettingsStore(defaults: isolatedDefaults())
+        settings.voiceOutputEnabled = true
+        let response = voiceFixtureResponse(reply: "Alice 正在用本地语音回应。")
+        let voiceOutput = SuspendedVoiceOutput()
+        let viewModel = ChatViewModel(
+            settingsStore: settings,
+            apiClientFactory: { _, _ in FixtureAliceAPIClient(response: response) },
+            voiceOutput: voiceOutput
+        )
+
+        viewModel.draft = "hello"
+        viewModel.sendDraft()
+        try await waitUntil { voiceOutput.spokenTexts == [response.reply] }
+
+        #expect(viewModel.messages.last?.text == response.reply)
+        #expect(viewModel.avatarState == .speaking)
+        #expect(viewModel.companionState.avatarState == .speaking)
+        #expect(viewModel.avatarDirective.source == "ios_avspeech")
+        #expect(viewModel.ttsStatus.status == "speaking")
+
+        voiceOutput.finish()
+        try await waitUntil { viewModel.ttsStatus.status == "completed" && viewModel.avatarState == .idle }
+
+        #expect(viewModel.avatarDirective.source == "ios_avspeech_return")
+    }
+
+    @Test func voiceDisabledDoesNotTriggerLocalSpeakingState() async throws {
+        let settings = AppSettingsStore(defaults: isolatedDefaults())
+        settings.voiceOutputEnabled = false
+        let response = voiceFixtureResponse(reply: "Voice disabled reply.")
+        let voiceOutput = SuspendedVoiceOutput()
+        let viewModel = ChatViewModel(
+            settingsStore: settings,
+            apiClientFactory: { _, _ in FixtureAliceAPIClient(response: response) },
+            voiceOutput: voiceOutput
+        )
+
+        viewModel.draft = "hello"
+        viewModel.sendDraft()
+        try await waitUntil { viewModel.messages.last?.text == response.reply }
+
+        #expect(voiceOutput.spokenTexts.isEmpty)
+        #expect(viewModel.voiceOutputEnabled == false)
+        #expect(viewModel.ttsStatus == .disabled)
+        #expect(viewModel.avatarState != .speaking)
+        #expect(viewModel.avatarDirective.source == "test_contract")
+    }
+
     @Test func remoteDialogueFailureFallsBackToMockContract() async throws {
         let defaults = isolatedDefaults()
         let settings = AppSettingsStore(defaults: defaults)
         settings.apiMode = .localhost
+        settings.voiceOutputEnabled = false
 
         let fallbackResponse = DialogueResponse(
             reply: "Fallback mock contract.",
@@ -296,6 +356,65 @@ private struct FixtureAliceAPIClient: AliceAPIClienting {
     func fetchMemory(sessionId: String, avatarId: String) async throws -> MemoryState {
         response.memory
     }
+}
+
+@MainActor
+private final class SuspendedVoiceOutput: VoiceOutputing {
+    private(set) var spokenTexts: [String] = []
+    private var continuation: CheckedContinuation<Void, Error>?
+
+    func speak(_ text: String, voice: VoiceAffect, persona: CompanionPersona) async throws {
+        spokenTexts.append(text)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            self.continuation = continuation
+        }
+    }
+
+    func stop() {
+        continuation?.resume(throwing: CancellationError())
+        continuation = nil
+    }
+
+    func finish() {
+        continuation?.resume()
+        continuation = nil
+    }
+}
+
+private func voiceFixtureResponse(reply: String) -> DialogueResponse {
+    let memory = MemoryState.empty(sessionId: "voice-test-session", avatarId: "alice", used: true)
+    let memoryStatus = MemoryStatus(memory: memory)
+    let affect = Affect(
+        emotion: .warm,
+        intensity: 0.5,
+        tone: .gentle,
+        reason: "voice_test_contract",
+        voice: .gentle,
+        motion: MotionAffect(slot: .chat, intensity: 0.4)
+    )
+
+    return DialogueResponse(
+        reply: reply,
+        memory: memory,
+        affect: affect,
+        companionState: CompanionState(
+            status: "mock",
+            emotion: .warm,
+            tone: .gentle,
+            avatarState: .reacting,
+            memoryStatus: memoryStatus,
+            isMock: true
+        ),
+        avatarDirective: AvatarDirective(
+            state: .reacting,
+            motionSlot: .chat,
+            intensity: 0.4,
+            returnTo: .idle,
+            source: "test_contract"
+        ),
+        memoryStatus: memoryStatus,
+        ttsStatus: .notRequested
+    )
 }
 
 private func isolatedDefaults() -> UserDefaults {
